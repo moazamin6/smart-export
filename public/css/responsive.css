@@ -1,0 +1,74 @@
+/* Extra small devices (portrait phones, less than 576px)*/
+/* No media query for `xs` since this is the default in Bootstrap*/
+
+/*Small devices (landscape phones, 576px and up)*/
+@media (max-width: 576px) {
+
+
+}
+
+/*Medium devices (tablets, 768px and up)*/
+@media (max-width: 768px) {
+
+}
+
+/*Large devices (desktops, 992px and up)*/
+@media (max-width: 992px) {
+
+    /*.progress-bars-1 .d-flex, .progress-bars-2 .d-flex {*/
+    /*    flex-direction: column;*/
+    /*}*/
+
+    .progress-bars-1, .progress-bars-2 {
+        /*padding:1rem !important;*/
+    }
+
+    .nav-link {
+        padding-left: 10px !important;
+    }
+
+    .navbar-toggler {
+        margin-bottom: 10px;
+    }
+
+    .wrapper-1 {
+        flex-direction: column-reverse !important;
+    }
+
+    .pie-chart {
+        /*height: 450px ;*/
+        width: 100% !important;
+        padding-bottom: 1rem !important;
+        margin-bottom: 3px !important;
+    }
+
+    .progress-bars {
+        width: 100% !important;
+        margin-left: 0 !important;
+    }
+
+    .wrapper-2 {
+        flex-direction: column !important;
+    }
+
+    .calendar {
+        width: 100% !important;
+        margin-bottom: 3px;
+    }
+
+    .trigger-wrapper {
+        flex-direction: column;
+    }
+
+    .trigger-list, .added-triggers {
+        width: 100% !important;
+        padding: 0;
+        margin: 10px 0 0;
+    }
+}
+
+/*Extra large devices (large desktops, 1200px and up)*/
+@media (max-width: 1200px) {
+
+
+}
