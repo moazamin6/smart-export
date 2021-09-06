@@ -52,6 +52,61 @@ class Orders
         return json_decode(json_encode($orders));
     }
 
+    public static function getOrdersToExport($user_id, $order_status)
+    {
+        if ($order_status === 'any') {
+            $params = [
+                'limit' => '250',
+                'status' => 'any',
+            ];
+        } else {
+
+            $params = [
+
+                'limit' => '250',
+                'fulfillment_status' => $order_status,
+//                'created_at_min' => '2021-08-21',
+//                'created_at_max' => '2021-08-21',
+            ];
+        }
+
+        $shop = User::find($user_id);
+//        $params = [
+//            'status' => $status,
+//            'limit' => '250',
+////            'created_at_min' => $created_at_min,
+////            'created_at_max' => $created_at_max,
+//        ];
+
+
+        $orders = [];
+        $is_orders = true;
+        while ($is_orders) {
+
+            $new_orders = $shop->api()->rest('GET', '/admin/api/2021-07/orders.json', $params);
+
+            if (!$new_orders['errors']) {
+                $orders = array_merge($orders, $new_orders['body']->container['orders']);
+                if ($new_orders['link'] !== null) {
+
+                    $next = $new_orders['link']->container['next'];
+                    $params = ['page_info' => $next, 'limit' => '250'];
+
+                    if ($next === null) {
+                        $is_orders = false;
+                    }
+                } else {
+                    $is_orders = false;
+                }
+            } else {
+                $is_orders = false;
+            }
+        }
+//        dd($orders);
+
+        return json_decode(json_encode($orders));
+    }
+
     public static function getOrderByID($user_id, $id)
     {
 

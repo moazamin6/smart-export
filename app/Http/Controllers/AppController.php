@@ -13,8 +13,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Route;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use Stripe\Exception\ApiErrorException;
 use Stripe\StripeClient;
 
@@ -37,45 +39,79 @@ class AppController extends Controller
 
     public function exportFormToExcel(Request $request)
     {
+        $export_for = $request->btn_export;
+        $order_status = $request->order_status;
         $user_id = Auth::user()->id;
-        $orders = Orders::all($user_id, '', '');
+        $orders = Orders::getOrdersToExport($user_id, $order_status);
         $export_data = [];
-        foreach ($orders as $order) {
-            $address = $order->billing_address->address1 . ' ' . $order->billing_address->address2;
-            $phone = str_replace(' ', '', $order->billing_address->phone) . '';
-            $city = strtoupper($order->billing_address->city);
 
+        foreach ($orders as $order) {
+            $address = $order->shipping_address->address1 . ' ' . $order->shipping_address->address2;
+            $phone = str_replace(' ', '', $order->shipping_address->phone) . '';
+            $city = strtoupper($order->shipping_address->city);
+            $city = rtrim($city, ' ');
+            $city = ltrim($city, ' ');
             $product_detail = '';
             $line_items = $order->line_items;
             foreach ($line_items as $item) {
 
                 $product_detail = $item->title . ',' . $product_detail;
             }
-            $export_data[] = [
+            $product_detail = rtrim($product_detail, ',');
 
-                HEADER_A => $order->billing_address->name,
-                HEADER_B => $address,
-                HEADER_C => $phone,
-                HEADER_D => $order->contact_email,
-                HEADER_E => $city,
-                HEADER_F => 1,
-                HEADER_G => 0.5,
-                HEADER_H => $order->current_total_price,
-                HEADER_I => $order->id . '',
-                HEADER_J => 'NO',
-                HEADER_K => 'O',
-                HEADER_L => $product_detail,
-                HEADER_M => '',
-                HEADER_N => '',
-            ];
+            if ($export_for === EXPORT_BTN_LABEL_TCS) {
+
+                $export_data[] = [
+
+                    HEADER_A => $order->shipping_address->name,
+                    HEADER_B => $address,
+                    HEADER_C => $phone,
+                    HEADER_D => $order->contact_email,
+                    HEADER_E => $city,
+                    HEADER_F => 1,
+                    HEADER_G => 0.5,
+                    HEADER_H => $order->current_total_price,
+                    HEADER_I => $order->id . '',
+                    HEADER_J => 'NO',
+                    HEADER_K => 'O',
+                    HEADER_L => $product_detail,
+                    HEADER_M => '',
+                    HEADER_N => '',
+                ];
+
+            } elseif ($export_for === EXPORT_BTN_LABEL_LCS) {
+                $export_data[] = [
+
+                    HEADER_A_LCS => 'BEAUTIIVO',
+                    HEADER_B_LCS => '03117118700',
+                    HEADER_C_LCS => '8-PIR GHAZI ROAD INFRONT MINDIR BROSTAN NEAR WAQAS HARDWARE ICHRA LAHORE',
+                    HEADER_D_LCS => 'beautiivo@hotmail.com',
+                    HEADER_E_LCS => 'LAHORE',
+                    HEADER_F_LCS => $order->shipping_address->name,
+                    HEADER_G_LCS => $order->contact_email,
+                    HEADER_H_LCS => $phone,
+                    HEADER_I_LCS => $address,
+                    HEADER_J_LCS => $city,
+                    HEADER_K_LCS => $order->current_total_price,
+                    HEADER_L_LCS => $order->id . '',
+                    HEADER_M_LCS => $product_detail,
+                    HEADER_N_LCS => '500',
+                    HEADER_O_LCS => 'overnight',
+                    HEADER_P_LCS => '1',
+                ];
+            }
         }
 
-        $this->exportDataToExcel($export_data);
+        if ($export_for === EXPORT_BTN_LABEL_TCS) {
 
-//        dd($export_data);
+            $this->exportDataToExcelForTCS($export_data, $order_status);
+        } elseif ($export_for === EXPORT_BTN_LABEL_LCS) {
+
+            $this->exportDataToExcelForLCS($export_data, $order_status);
+        }
     }
 
-    public function exportDataToExcel($data)
+    public function exportDataToExcelForTCS($data, $file_name_part)
     {
 
         $file = new Spreadsheet();
@@ -114,6 +150,9 @@ class AppController extends Controller
             $active_sheet->setCellValue('L' . $count, $row[HEADER_L]);
             $active_sheet->setCellValue('M' . $count, $row[HEADER_M]);
             $active_sheet->setCellValue('N' . $count, $row[HEADER_N]);
+
+            $active_sheet->getCell('C' . $count)->setDataType(DataType::TYPE_STRING2);
+            $active_sheet->getCell('I' . $count)->setDataType(DataType::TYPE_STRING2);
 
             $count = $count + 1;
         }
@@ -161,9 +200,128 @@ class AppController extends Controller
             ->getColor()
             ->setARGB('000000');
 
+//        $active_sheet->getStyle('C')->getNumberFormat()->applyFromArray([
+//            'formatCode' => NumberFormat::FORMAT_TEXT
+//        ]);
+
         $writer = IOFactory::createWriter($file, $file_type);
 
-        $file_name = 'cod_' . time() . '.' . strtolower($file_type);
+        $file_name = 'cod_' . $file_name_part . '_' . time() . '.' . strtolower($file_type);
+
+        $writer->save($file_name);
+
+        header('Content-Type: application/x-www-form-urlencoded');
+        header('Content-Transfer-Encoding: Binary');
+        header("Content-disposition: attachment; filename=\"" . $file_name . "\"");
+        readfile($file_name);
+        unlink($file_name);
+        exit;
+    }
+
+    public function exportDataToExcelForLCS($data, $file_name_part)
+    {
+        $file = new Spreadsheet();
+        $file_type = 'Xlsx';
+        $active_sheet = $file->getActiveSheet();
+
+        $active_sheet->setCellValue('A1', HEADER_A_LCS);
+        $active_sheet->setCellValue('B1', HEADER_B_LCS);
+        $active_sheet->setCellValue('C1', HEADER_C_LCS);
+        $active_sheet->setCellValue('D1', HEADER_D_LCS);
+        $active_sheet->setCellValue('E1', HEADER_E_LCS);
+        $active_sheet->setCellValue('F1', HEADER_F_LCS);
+        $active_sheet->setCellValue('G1', HEADER_G_LCS);
+        $active_sheet->setCellValue('H1', HEADER_H_LCS);
+        $active_sheet->setCellValue('I1', HEADER_I_LCS);
+        $active_sheet->setCellValue('J1', HEADER_J_LCS);
+        $active_sheet->setCellValue('K1', HEADER_K_LCS);
+        $active_sheet->setCellValue('L1', HEADER_L_LCS);
+        $active_sheet->setCellValue('M1', HEADER_M_LCS);
+        $active_sheet->setCellValue('N1', HEADER_N_LCS);
+        $active_sheet->setCellValue('O1', HEADER_O_LCS);
+        $active_sheet->setCellValue('P1', HEADER_P_LCS);
+
+        $count = 2;
+
+        foreach ($data as $row) {
+            $active_sheet->setCellValue('A' . $count, $row[HEADER_A_LCS]);
+            $active_sheet->setCellValue('B' . $count, $row[HEADER_B_LCS]);
+            $active_sheet->setCellValue('C' . $count, $row[HEADER_C_LCS]);
+            $active_sheet->setCellValue('D' . $count, $row[HEADER_D_LCS]);
+            $active_sheet->setCellValue('E' . $count, $row[HEADER_E_LCS]);
+            $active_sheet->setCellValue('F' . $count, $row[HEADER_F_LCS]);
+            $active_sheet->setCellValue('G' . $count, $row[HEADER_G_LCS]);
+            $active_sheet->setCellValue('H' . $count, $row[HEADER_H_LCS]);
+            $active_sheet->setCellValue('I' . $count, $row[HEADER_I_LCS]);
+            $active_sheet->setCellValue('J' . $count, $row[HEADER_J_LCS]);
+            $active_sheet->setCellValue('K' . $count, $row[HEADER_K_LCS]);
+            $active_sheet->setCellValue('L' . $count, $row[HEADER_L_LCS]);
+            $active_sheet->setCellValue('M' . $count, $row[HEADER_M_LCS]);
+            $active_sheet->setCellValue('N' . $count, $row[HEADER_N_LCS]);
+            $active_sheet->setCellValue('O' . $count, $row[HEADER_O_LCS]);
+            $active_sheet->setCellValue('P' . $count, $row[HEADER_P_LCS]);
+
+            $active_sheet->getCell('H' . $count)->setDataType(DataType::TYPE_STRING2);
+            $active_sheet->getCell('L' . $count)->setDataType(DataType::TYPE_STRING2);
+
+            $count = $count + 1;
+        }
+
+        $total_rows = count($data) + 20;
+
+        $active_sheet->getColumnDimension('A')->setWidth(20);
+        $active_sheet->getColumnDimension('B')->setWidth(20);
+        $active_sheet->getColumnDimension('C')->setWidth(40);
+        $active_sheet->getColumnDimension('D')->setWidth(30);
+        $active_sheet->getColumnDimension('E')->setWidth(25);
+        $active_sheet->getColumnDimension('F')->setWidth(30);
+        $active_sheet->getColumnDimension('G')->setWidth(30);
+        $active_sheet->getColumnDimension('H')->setWidth(25);
+        $active_sheet->getColumnDimension('I')->setWidth(40);
+        $active_sheet->getColumnDimension('J')->setWidth(22);
+        $active_sheet->getColumnDimension('K')->setWidth(25);
+        $active_sheet->getColumnDimension('L')->setWidth(40);
+        $active_sheet->getColumnDimension('M')->setWidth(30);
+        $active_sheet->getColumnDimension('N')->setWidth(22);
+        $active_sheet->getColumnDimension('O')->setWidth(20);
+        $active_sheet->getColumnDimension('P')->setWidth(20);
+
+
+        $active_sheet->getStyle('A1:A' . $total_rows)->getAlignment()->setHorizontal('center');
+        $active_sheet->getStyle('B1:B' . $total_rows)->getAlignment()->setHorizontal('center');
+        $active_sheet->getStyle('D1:D' . $total_rows)->getAlignment()->setHorizontal('center');
+        $active_sheet->getStyle('E1:E' . $total_rows)->getAlignment()->setHorizontal('center');
+        $active_sheet->getStyle('F1:F' . $total_rows)->getAlignment()->setHorizontal('center');
+        $active_sheet->getStyle('G1:G' . $total_rows)->getAlignment()->setHorizontal('center');
+        $active_sheet->getStyle('H1:H' . $total_rows)->getAlignment()->setHorizontal('center');
+        $active_sheet->getStyle('J1:J' . $total_rows)->getAlignment()->setHorizontal('center');
+        $active_sheet->getStyle('K1:K' . $total_rows)->getAlignment()->setHorizontal('center');
+        $active_sheet->getStyle('L1:L' . $total_rows)->getAlignment()->setHorizontal('center');
+        $active_sheet->getStyle('M1:M' . $total_rows)->getAlignment()->setHorizontal('center');
+        $active_sheet->getStyle('N1:N' . $total_rows)->getAlignment()->setHorizontal('center');
+        $active_sheet->getStyle('O1:O' . $total_rows)->getAlignment()->setHorizontal('center');
+        $active_sheet->getStyle('P1:P' . $total_rows)->getAlignment()->setHorizontal('center');
+
+        $active_sheet
+            ->getStyle('A1:O1')
+            ->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()
+            ->setARGB('fcd537');
+
+        $active_sheet
+            ->getStyle('A1:O1')
+            ->getFont()
+            ->getColor()
+            ->setARGB('000000');
+
+//        $active_sheet->getStyle('C')->getNumberFormat()->applyFromArray([
+//            'formatCode' => NumberFormat::FORMAT_TEXT
+//        ]);
+
+        $writer = IOFactory::createWriter($file, $file_type);
+
+        $file_name = 'lcs_cod_' . $file_name_part . '_' . time() . '.' . strtolower($file_type);
 
         $writer->save($file_name);
 
@@ -188,7 +346,10 @@ class AppController extends Controller
         $filtered_date = null;
         if ($startDate !== null && $endDate !== null) {
 
-            $tracking_data = $user->trackings()->whereBetween('order_date', [$startDate, $endDate])->get();
+            $tracking_data = $user->trackings()->whereBetween('order_date', [
+                $startDate,
+                $endDate
+            ])->get();
             $filtered_date = $startDate . ' - ' . $endDate;
         } else {
 
@@ -256,7 +417,7 @@ class AppController extends Controller
 
         $customer = \Stripe\Customer::create();
         $intent = \Stripe\PaymentIntent::create([
-            'amount' => 100,
+            'amount'   => 100,
             'currency' => 'usd',
             'customer' => $customer->id,
         ]);
@@ -398,23 +559,31 @@ class AppController extends Controller
             $stripe = new StripeClient(env('STRIPE_SECRET_KEY'));
             $customer = $stripe->customers->update(
                 $res['customer_id'],
-                ['email' => $res['email'],
-                    'description' => 'Payment Method updated']
+                [
+                    'email'       => $res['email'],
+                    'description' => 'Payment Method updated'
+                ]
             );
-            $all_payment_methods = $stripe->paymentMethods->all(['customer' => $res['customer_id'], 'type' => 'card',])->data;
+            $all_payment_methods = $stripe->paymentMethods->all([
+                'customer' => $res['customer_id'],
+                'type'     => 'card',
+            ])->data;
             $stripe->paymentMethods->attach($stripe_pm_id, ['customer' => $stripe_customer_id]);
             foreach ($all_payment_methods as $pm) {
 
                 $stripe->paymentMethods->detach($pm['id']);
             }
 
-            $all_payment_methods = $stripe->paymentMethods->all(['customer' => $res['customer_id'], 'type' => 'card',])->data;
+            $all_payment_methods = $stripe->paymentMethods->all([
+                'customer' => $res['customer_id'],
+                'type'     => 'card',
+            ])->data;
             $last_four = $all_payment_methods[0]['card']['last4'];
 
             $data = [
-                'name' => $res['name'],
+                'name'           => $res['name'],
                 'payment_method' => $stripe_pm_id,
-                'last_four' => $last_four,
+                'last_four'      => $last_four,
             ];
 
             $user = Auth::user();
@@ -423,7 +592,10 @@ class AppController extends Controller
             return response(json_encode(['error' => false]));
         } catch (ApiErrorException $e) {
 
-            return response(json_encode(['error' => true, 'message' => $e->getError()->message]));
+            return response(json_encode([
+                'error'   => true,
+                'message' => $e->getError()->message
+            ]));
         }
     }
 
@@ -447,13 +619,13 @@ class AppController extends Controller
 
         $params = [
             "recurring_application_charge" => [
-                "name" => "Orderstalker Test Usage Payment final",
-                "price" => 29.95,
-                "return_url" => route('all-billing'),
+                "name"          => "Orderstalker Test Usage Payment final",
+                "price"         => 29.95,
+                "return_url"    => route('all-billing'),
                 "capped_amount" => 10,
-                "terms" => 'Charge $10 on every 500+ orders',
-                "trial_days" => 14,
-                "test" => true
+                "terms"         => 'Charge $10 on every 500+ orders',
+                "trial_days"    => 14,
+                "test"          => true
             ]
         ];
 
@@ -507,8 +679,8 @@ class AppController extends Controller
         $params = [
             "usage_charge" => [
                 "description" => "plan 500+ orders",
-                "price" => 10.0,
-                "test" => true,
+                "price"       => 10.0,
+                "test"        => true,
             ]
         ];
         $bill = $shop->api()->rest('POST', '/admin/api/2020-10/recurring_application_charges/20013121707/usage_charges.json', $params);
@@ -566,9 +738,9 @@ class AppController extends Controller
             $activation = $activation['body']->container['recurring_application_charge'];
 
             $data = [
-                'payment_type' => PAYMENT_TYPE_RECURRING_APPLICATION_CHARGE,
-                'payment_id' => $payment_id,
-                'amount' => 0,
+                'payment_type'    => PAYMENT_TYPE_RECURRING_APPLICATION_CHARGE,
+                'payment_id'      => $payment_id,
+                'amount'          => 0,
                 'next_payment_at' => date('y-m-d', strtotime($activation['billing_on'])),
             ];
             $shop->payment()->create($data);

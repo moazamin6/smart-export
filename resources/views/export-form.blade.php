@@ -3,12 +3,42 @@
 @push('scripts')
     <style>
 
+        .btn-dark {
+
+            width: 200px !important;
+            margin-bottom: 10px;
+        }
     </style>
 @endpush
 
 
 @section('content')
 
+    <div class="d-flex m-5 align-content-center">
+
+        <div class="col-8 col-md-4">
+
+            <form action="{{route('export-form-excel')}}" method="POST">
+                @csrf
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text" for="order-status">Select Order Status</label>
+                    </div>
+                    <select name="order_status" class="custom-select" id="order-status">
+                        <option selected value="any">Any</option>
+                        <option value="shipped">Fulfilled</option>
+                        <option value="unshipped">Unfulfilled</option>
+                    </select>
+                </div>
+
+                <input class="btn btn-dark" name="btn_export" value="{{EXPORT_BTN_LABEL_TCS}}" type="submit">
+                <br>
+                <input class="btn btn-dark" name="btn_export" value="{{EXPORT_BTN_LABEL_LCS}}" type="submit">
+            </form>
+
+        </div>
+
+    </div>
     <div class="d-flex flex-column mt-5 ml-5 flex-row col-8 col-md-4">
         <h3>Order Statuses</h3>
 
@@ -34,33 +64,7 @@
             </li>
         </ul>
     </div>
-    <div class="d-flex m-5 align-content-center">
 
-        <div class="col-8 col-md-4">
-
-            <form action="{{route('export-form-excel')}}" method="POST">
-                @csrf
-                <div class="input-group mb-3">
-                    <div class="input-group-prepend">
-                        <label class="input-group-text" for="order-status">Select Order Status</label>
-                    </div>
-                    <select name="order-status" class="custom-select" id="order-status">
-                        <option selected value="all">All</option>
-                        <option value="pending">Pending</option>
-                        <option value="open">Open</option>
-                        <option value="success">Success</option>
-                        <option value="cancelled">Cancelled</option>
-                        <option value="error">Error</option>
-                        <option value="failure">Failure</option>
-                    </select>
-                </div>
-
-                <input class="btn btn-dark" value="Export as Excel" type="submit">
-            </form>
-
-        </div>
-
-    </div>
 
 @endsection
 

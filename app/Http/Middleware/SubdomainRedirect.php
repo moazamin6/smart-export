@@ -17,6 +17,7 @@ class SubdomainRedirect
 
     function handle($request, Closure $next)
     {
+        return $next($request);
         $httpHost = $request->getHttpHost();
         $requestURI = $request->getRequestUri();
 
@@ -31,6 +32,5 @@ class SubdomainRedirect
                 return redirect()->route('admin-login-form');
             }
         }
-        return $next($request);
     }
 }

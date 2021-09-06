@@ -81,3 +81,25 @@ const HEADER_K = 'Service Type';
 const HEADER_L = 'Product Details';
 const HEADER_M = 'Remarks';
 const HEADER_N = 'Insurance/Declared Value';
+
+
+const HEADER_A_LCS = 'shipperName';
+const HEADER_B_LCS = 'shipperPhone';
+const HEADER_C_LCS = 'shipperAddress';
+const HEADER_D_LCS = 'shipperEmail';
+const HEADER_E_LCS = 'Origin City Name';
+const HEADER_F_LCS = 'consigneeName';
+const HEADER_G_LCS = 'consigneeEmail';
+const HEADER_H_LCS = 'consigneePhone';
+const HEADER_I_LCS = 'consigneeAddress';
+const HEADER_J_LCS = 'Destination CityName';
+const HEADER_K_LCS = 'bookedPacketCollectAmount';
+const HEADER_L_LCS = 'bookedpacketorderid';
+const HEADER_M_LCS = 'ProductDescription';
+const HEADER_N_LCS = 'bookedPacketWeight';
+const HEADER_O_LCS = 'shipment_type';
+const HEADER_P_LCS = 'numberOfPieces';
+
+
+const EXPORT_BTN_LABEL_TCS = 'Export as Excel For TCS';
+const EXPORT_BTN_LABEL_LCS = 'Export as Excel For LCS';
